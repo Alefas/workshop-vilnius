@@ -168,8 +168,8 @@ def main():
         ),
     )
     ap.add_argument("--text-col", default="text", help="Column name for the input message text")
-    ap.add_argument("--label-col", default="label", help="Binary label column (0/1) for task presence; set to '' to disable")
-    ap.add_argument("--gold-task-col", default="gold_task", help="Reference task text column; set to '' to disable")
+    ap.add_argument("--label-col", default="is_task", help="Binary label column (0/1) for task presence; set to '' to disable")
+    ap.add_argument("--gold-task-col", default="task", help="Reference task text column; set to '' to disable")
     ap.add_argument("--output", default="", help="Optional path to write predictions CSV")
     # If not provided, the report will be saved as evaluation_report.<DATASETFILENAME>.html
     ap.add_argument(
