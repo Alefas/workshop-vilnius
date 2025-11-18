@@ -80,9 +80,11 @@ def build_html_report(dataset_path: str, metrics: dict) -> str:
     )
 
     # Cards
-    def card(title, value, desc="", tooltip: str = ""):
+    def card(title, value, desc="", tooltip: str = "", style: str = ""):
+        tip = _html.escape(tooltip)
+        style_attr = f' style="{_html.escape(style)}"' if style else ""
         return (
-            f'<div class="card" title="{_html.escape(tooltip)}">'
+            f'<div class="card" title="{tip}" aria-label="{tip}"{style_attr}>'
             f'<div class="card-title">{_html.escape(title)}</div>'
             f'<div class="card-value">{_html.escape(value)}</div>'
             f'<div class="card-desc">{_html.escape(desc)}</div>'
@@ -94,6 +96,20 @@ def build_html_report(dataset_path: str, metrics: dict) -> str:
     f1 = metrics.get("f1", 0.0)
     fn_rate = metrics.get("fn_rate_pos_percent")
     fp_rate = metrics.get("fp_rate_neg_percent")
+
+    # Conditional styles per requirements
+    def good_bg():
+        # light green with dark text
+        return "background: #dcfce7; color: #111827; border-color: rgba(0,0,0,0.06);"
+
+    def bad_bg():
+        # light red with dark text
+        return "background: #fee2e2; color: #111827; border-color: rgba(0,0,0,0.06);"
+
+    prec_style = good_bg() if precision >= 0.5 else bad_bg()
+    # recall is defined as TN / (TN + FP)
+    recall_style = good_bg() if recall >= 0.95 else bad_bg()
+    time_style = good_bg() if avg_ms < 5000.0 else bad_bg()
 
     cards_html = "".join([
         card(
@@ -110,39 +126,96 @@ def build_html_report(dataset_path: str, metrics: dict) -> str:
         card(
             "Precision",
             fmt(precision, "{:.3f}"),
-            tooltip="Overall match rate: (TP + TN) / (TP + FP + FN + TN). Proportion where predicted is_task matches the label"
+            tooltip="Precision per requirement (here defined as TP / (TP + FN))",
+            style=prec_style,
         ),
         card(
             "Recall",
             fmt(recall, "{:.3f}"),
-            tooltip="Recall (sensitivity) among positives: TP / (TP + FN)"
-        ),
-        card(
-            "F1",
-            fmt(f1, "{:.3f}"),
-            tooltip="Harmonic mean of standard precision and recall: 2 * P * R / (P + R), with P = TP / (TP + FP)"
-        ),
-        card(
-            "Avg task F1",
-            fmt(metrics.get("avg_task_f1"), "{:.3f}"),
-            tooltip="Average token-set F1 between predicted task text and gold_task over rows where gold_task is provided"
-        ),
-        card(
-            "FN rate when gold=True",
-            (fmt(fn_rate, "{:.2f}") + "%") if fn_rate is not None else "N/A",
-            tooltip="Among actual tasks (gold=1), percentage predicted as non-task (False Negative rate)"
-        ),
-        card(
-            "FP rate when gold=False",
-            (fmt(fp_rate, "{:.2f}") + "%") if fp_rate is not None else "N/A",
-            tooltip="Among actual non-tasks (gold=0), percentage predicted as task (False Positive rate)"
-        ),
-        card(
-            "Avg extract time",
-            fmt(avg_ms, "{:.2f}") + " ms",
-            tooltip="Average runtime of extract_task per row in milliseconds"
+            tooltip="True Negative Rate (specificity): TN / (TN + FP)",
+            style=recall_style,
         ),
     ])
+
+    # Prepare Avg extract time card to be displayed next to the histogram (same row)
+    avg_time_card_html = card(
+        "Avg extract time",
+        fmt(avg_ms, "{:.2f}") + " ms",
+        tooltip="Average runtime of extract_task per row in milliseconds",
+        style=time_style,
+    )
+
+    # Build failed test cases list (FP/FN) to append at the end of the report
+    failed_cases = metrics.get("failed_cases") or []
+
+    def clip_text(s: str, n: int = 180) -> str:
+        s = s or ""
+        return (s[:n] + "…") if len(s) > n else s
+
+    failed_items = []
+    for case in failed_cases:
+        ctype = str(case.get("type", "?")).upper()
+        idx = case.get("index")
+        gold = case.get("gold")
+        pred = case.get("pred")
+        text_snip = clip_text(str(case.get("text", "")))
+        task_snip = clip_text(str(case.get("pred_task", "")))
+        li = (
+            f'<li>'
+            f'<span class="tag tag-{_html.escape(ctype)}" title="{_html.escape(ctype)} case">{_html.escape(ctype)}</span>'
+            f' <span class="muted">#</span>{_html.escape(str(idx))} '
+            f'<span class="muted">gold=</span>{_html.escape(str(gold))} '
+            f'<span class="muted">pred=</span>{_html.escape(str(pred))} '
+            f'&nbsp;—&nbsp;<span class="text">{_html.escape(text_snip)}</span>'
+            f'{("<div class=\"muted small\">pred_task: " + _html.escape(task_snip) + "</div>") if task_snip else ""}'
+            f'</li>'
+        )
+        failed_items.append(li)
+
+    failed_panel = ""
+    if failed_items:
+        failed_panel = (
+            '<div class="panel" style="margin-top: 16px;">'
+            '<div class="panel-title">Failed test cases</div>'
+            f'<ul class="fail-list">{"".join(failed_items)}</ul>'
+            '</div>'
+        )
+
+    # Slow tests (>= 5000 ms)
+    slow_cases = metrics.get("slow_cases") or []
+    has_slow = bool(metrics.get("has_slow"))
+
+    def fmt_ms(v: float) -> str:
+        try:
+            return f"{float(v):.2f} ms"
+        except Exception:
+            return str(v)
+
+    slow_items = []
+    for case in slow_cases:
+        idx = case.get("index")
+        dur = fmt_ms(case.get("duration_ms", 0.0))
+        text_snip = clip_text(str(case.get("text", "")))
+        task_snip = clip_text(str(case.get("pred_task", "")))
+        li = (
+            f'<li>'
+            f'<span class="tag" title="Slow test">SLOW</span>'
+            f' <span class="muted">#</span>{_html.escape(str(idx))} '
+            f'<span class="muted">duration=</span>{_html.escape(dur)} '
+            f'&nbsp;—&nbsp;<span class="text">{_html.escape(text_snip)}</span>'
+            f'{("<div class=\"muted small\">pred_task: " + _html.escape(task_snip) + "</div>") if task_snip else ""}'
+            f'</li>'
+        )
+        slow_items.append(li)
+
+    slow_panel = ""
+    if slow_items:
+        slow_panel = (
+            '<div class="panel" style="margin-top: 16px;">'
+            '<div class="panel-title">Slow tests (>= 5000 ms)</div>'
+            f'<ul class="fail-list">{"".join(slow_items)}</ul>'
+            '</div>'
+        )
 
     # Prepare variables for f-string template
     cards = cards_html
@@ -150,6 +223,9 @@ def build_html_report(dataset_path: str, metrics: dict) -> str:
     bars = "\n        ".join(bar_svg)
     height_minus = height - 6
     x_max_x = width - 6
+
+    # Optional alert styling for the histogram panel when there are slow tests
+    panel_alert_style = " style=\"background: #fee2e2; color: #111827; border-color: rgba(0,0,0,0.06);\"" if has_slow else ""
 
     html = f"""
 <!DOCTYPE html>
@@ -186,6 +262,24 @@ def build_html_report(dataset_path: str, metrics: dict) -> str:
     .panel {{ background: linear-gradient(180deg, #111827, #0b1220); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 16px; margin-top: 14px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 18px 40px rgba(0,0,0,.35); }}
     .panel-title {{ font-size: 16px; font-weight: 600; margin-bottom: 10px; }}
     .axis {{ fill: var(--subtext); font-size: 11px; }}
+    .fail-list {{
+      list-style: none; padding-left: 0; margin: 8px 0 0;
+      display: grid; grid-template-columns: 1fr; gap: 8px;
+    }}
+    .fail-list li {{
+      padding: 8px 10px; border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(255,255,255,0.02); border-radius: 10px;
+    }}
+    .tag {{
+      display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 999px;
+      letter-spacing: .04em; margin-right: 6px; vertical-align: middle;
+      background: #334155; color: #e5e7eb;
+    }}
+    .tag-FP {{ background: #7c2d12; }}
+    .tag-FN {{ background: #9a3412; }}
+    .muted {{ color: var(--subtext); }}
+    .small {{ font-size: 11px; margin-top: 4px; }}
+    .text {{ color: inherit; }}
   </style>
   <meta name=\"color-scheme\" content=\"dark light\" />
   <meta name=\"description\" content=\"Evaluation dashboard for task extraction\" />
@@ -218,27 +312,35 @@ def build_html_report(dataset_path: str, metrics: dict) -> str:
       {cards}
     </div>
 
-    <div class=\"panel\">
-      <div class=\"panel-title\">Extract time distribution (ms)</div>
-      <svg width=\"{width}\" height=\"{height}\" role=\"img\" aria-label=\"Histogram of extract times\">
-        <rect x=\"0\" y=\"0\" width=\"{width}\" height=\"{height}\" fill=\"transparent\" />
-        {avg_line}
-        {bars}
-        <!-- X axis labels -->
-        <text x=\"{pad_left}\" y=\"{height_minus}\" class=\"axis\">{x_min_lbl} ms</text>
-        <text x=\"{x_max_x}\" y=\"{height_minus}\" class=\"axis\" text-anchor=\"end\">{x_max_lbl} ms</text>
-      </svg>
+    {slow_panel}
+
+    <div class=\"panel\"{panel_alert_style}>
+      <div style=\"display:grid; grid-template-columns: 260px 1fr; gap: 12px; align-items: start;\">
+        {avg_time_card_html}
+        <div>
+          <div class=\"panel-title\" style=\"margin-top:0;\">Extract time distribution (ms)</div>
+          <svg viewBox=\"0 0 {width} {height}\" width=\"100%\" height=\"{height}\" role=\"img\" aria-label=\"Histogram of extract times\" preserveAspectRatio=\"xMidYMid meet\">
+            <rect x=\"0\" y=\"0\" width=\"{width}\" height=\"{height}\" fill=\"transparent\" />
+            {avg_line}
+            {bars}
+            <!-- X axis labels -->
+            <text x=\"{pad_left}\" y=\"{height_minus}\" class=\"axis\">{x_min_lbl} ms</text>
+            <text x=\"{x_max_x}\" y=\"{height_minus}\" class=\"axis\" text-anchor=\"end\">{x_max_lbl} ms</text>
+          </svg>
+        </div>
+      </div>
     </div>
 
     <div class=\"panel\" style=\"margin-top: 16px;\">
       <div class=\"panel-title\">Confusion summary</div>
-      <div class=\"grid\">
-        {card("True Positives", str(metrics.get("tp", 0)), tooltip="Predicted is_task=True and label=1")}
-        {card("False Positives", str(metrics.get("fp", 0)), tooltip="Predicted is_task=True but label=0")}
-        {card("False Negatives", str(metrics.get("fn", 0)), tooltip="Predicted is_task=False but label=1")}
-        {card("True Negatives", str(metrics.get("tn", 0)), tooltip="Predicted is_task=False and label=0")}
+      <div class=\"grid\"> 
+        {card("True Positives", str(metrics.get("tp", 0)), tooltip="Predicted is_task=True and label=1", style=good_bg())}
+        {card("False Positives", str(metrics.get("fp", 0)), tooltip="Predicted is_task=True but label=0", style=bad_bg())}
+        {card("False Negatives", str(metrics.get("fn", 0)), tooltip="Predicted is_task=False but label=1", style=bad_bg())}
+        {card("True Negatives", str(metrics.get("tn", 0)), tooltip="Predicted is_task=False and label=0", style=good_bg())}
       </div>
     </div>
+    {failed_panel}
   </div>
 </body>
 </html>

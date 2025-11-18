@@ -53,12 +53,25 @@ def evaluate(rows: List[dict], text_col: str, label_col: Optional[str], gold_tas
     outputs: List[dict] = []
     durations_ms: List[float] = []
 
-    for row in rows:
+    # Capture slow executions (>= 5000 ms)
+    slow_cases: List[dict] = []
+
+    failed_cases: List[dict] = []
+
+    for idx, row in enumerate(rows):
         text = row.get(text_col, "") or ""
         t0 = time.perf_counter()
         result = extract_task(text)
         t1 = time.perf_counter()
         durations_ms.append((t1 - t0) * 1000.0)
+        # Track slow cases
+        if durations_ms[-1] > 5000.0:
+            slow_cases.append({
+                "index": idx,
+                "duration_ms": durations_ms[-1],
+                "text": text,
+                "pred_task": result.get("task", ""),
+            })
 
         pred = 1 if result["is_task"] else 0
         gold = None
@@ -73,8 +86,24 @@ def evaluate(rows: List[dict], text_col: str, label_col: Optional[str], gold_tas
                 tp += 1
             elif pred == 1 and gold == 0:
                 fp += 1
+                failed_cases.append({
+                    "index": idx,
+                    "type": "FP",
+                    "gold": gold,
+                    "pred": pred,
+                    "text": text,
+                    "pred_task": result.get("task", ""),
+                })
             elif pred == 0 and gold == 1:
                 fn += 1
+                failed_cases.append({
+                    "index": idx,
+                    "type": "FN",
+                    "gold": gold,
+                    "pred": pred,
+                    "text": text,
+                    "pred_task": result.get("task", ""),
+                })
             else:
                 tn += 1
 
@@ -96,9 +125,9 @@ def evaluate(rows: List[dict], text_col: str, label_col: Optional[str], gold_tas
 
     # Standard detection metrics
     std_precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-    recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-    f1 = 2 * std_precision * recall / (std_precision + recall) if (std_precision + recall) > 0 else 0.0
-    # Requested definition: overall match rate between predicted is_task and gold label
+    std_recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+    f1 = 2 * std_precision * std_recall / (std_precision + std_recall) if (std_precision + std_recall) > 0 else 0.0
+    # Also compute overall match rate (accuracy-like) for reference if needed later
     labeled_total = tp + fp + fn + tn
     overall_match_rate = (tp + tn) / labeled_total if labeled_total > 0 else 0.0
     avg_task_f1 = task_f1_sum / task_f1_count if task_f1_count > 0 else None
@@ -108,6 +137,13 @@ def evaluate(rows: List[dict], text_col: str, label_col: Optional[str], gold_tas
     fn_rate_pos = (fn / pos_total * 100.0) if pos_total > 0 else None
     fp_rate_neg = (fp / neg_total * 100.0) if neg_total > 0 else None
     avg_extract_ms = sum(durations_ms) / len(durations_ms) if durations_ms else 0.0
+    max_extract_ms = max(durations_ms) if durations_ms else 0.0
+
+    # Per current requirement:
+    # - precision is defined as TP / (TP + FN) and should be > 50%
+    # - recall is defined as TN / (TN + FP) and should be > 95%
+    precision_req = std_recall
+    recall_req = tn / (tn + fp) if (tn + fp) > 0 else 0.0
 
     metrics = {
         "count": len(rows),
@@ -115,18 +151,26 @@ def evaluate(rows: List[dict], text_col: str, label_col: Optional[str], gold_tas
         "fp": fp,
         "fn": fn,
         "tn": tn,
-        # Expose "precision" as the requested overall match rate (accuracy-like)
-        "precision": overall_match_rate,
-        # Keep the traditional precision as an extra field for reference
+        # Expose precision per requirement: TP / (TP + FN)
+        "precision": precision_req,
+        # Keep standard precision/recall for reference and F1 transparency
         "std_precision": std_precision,
-        "recall": recall,
+        "std_recall": std_recall,
+        # Expose recall per requirement: TN / (TN + FP)
+        "recall": recall_req,
         "f1": f1,
         "avg_task_f1": avg_task_f1,
         "task_overlap_evaluated": task_f1_count,
         "avg_extract_ms": avg_extract_ms,
+        "max_extract_ms": max_extract_ms,
         "fn_rate_pos_percent": fn_rate_pos,
         "fp_rate_neg_percent": fp_rate_neg,
         "durations_ms": durations_ms,
+        # List of failed cases (FP/FN) with context to display in report
+        "failed_cases": failed_cases,
+        # Slow tests (>= 5000 ms)
+        "slow_cases": slow_cases,
+        "has_slow": len(slow_cases) > 0,
     }
     return metrics, outputs
 

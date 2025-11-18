@@ -1,0 +1,136 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Evaluation Report - data.v0.csv</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --card: #1f2937;
+      --text: #e5e7eb;
+      --subtext: #9ca3af;
+      --primary: #4f46e5;
+      --accent: #22d3ee;
+    }
+    body {
+      margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: linear-gradient(180deg, #0b1020, #0f172a);
+      color: var(--text);
+    }
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
+    .title { font-size: 28px; font-weight: 700; letter-spacing: .5px; }
+    .subtitle { color: var(--subtext); font-size: 14px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin: 16px 0 20px; }
+    .card { background: linear-gradient(180deg, #1f2937, #111827); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 14px; box-shadow: 0 10px 25px rgba(0,0,0,.3); }
+    .card-title { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--subtext); margin-bottom: 6px; }
+    /* Use inherit so light mode shows dark text instead of forced white */
+    .card-value { font-size: 22px; font-weight: 700; color: inherit; }
+    .card-desc { font-size: 12px; color: var(--subtext); margin-top: 4px; word-break: break-all; }
+    .panel { background: linear-gradient(180deg, #111827, #0b1220); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 16px; margin-top: 14px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 18px 40px rgba(0,0,0,.35); }
+    .panel-title { font-size: 16px; font-weight: 600; margin-bottom: 10px; }
+    .axis { fill: var(--subtext); font-size: 11px; }
+    .fail-list {
+      list-style: none; padding-left: 0; margin: 8px 0 0;
+      display: grid; grid-template-columns: 1fr; gap: 8px;
+    }
+    .fail-list li {
+      padding: 8px 10px; border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(255,255,255,0.02); border-radius: 10px;
+    }
+    .tag {
+      display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 999px;
+      letter-spacing: .04em; margin-right: 6px; vertical-align: middle;
+      background: #334155; color: #e5e7eb;
+    }
+    .tag-FP { background: #7c2d12; }
+    .tag-FN { background: #9a3412; }
+    .muted { color: var(--subtext); }
+    .small { font-size: 11px; margin-top: 4px; }
+    .text { color: inherit; }
+  </style>
+  <meta name="color-scheme" content="dark light" />
+  <meta name="description" content="Evaluation dashboard for task extraction" />
+  <meta name="generated" content="2025-11-18 15:37:14" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+  <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+  <style>@media (prefers-color-scheme: light) { body { background: #f9fafb; color: #111827; } .card, .panel { background: #fff; } .card-title, .subtitle, .axis { color: #4b5563; } }</style>
+  <noscript>
+    <style>
+      .subtitle::after { content: " • (JS disabled)"; color: var(--subtext); }
+    </style>
+  </noscript>
+  <!-- Simple, dependency-free report -->
+  <!-- Timing histogram rendered as inline SVG for portability -->
+  <!-- Dataset: data.v0.csv -->
+  <!-- Counts: tp=13 fp=0 fn=2 tn=7 -->
+  <!-- Avg extract (ms): 915.63 -->
+  
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title">Task Extraction Evaluation</div>
+      <div class="subtitle">Dataset: data.v0.csv • Generated 2025-11-18 15:37</div>
+    </div>
+
+    <div class="grid">
+      <div class="card" title="Name of the dataset file used for evaluation" aria-label="Name of the dataset file used for evaluation"><div class="card-title">Dataset</div><div class="card-value">data.v0.csv</div><div class="card-desc">/Users/alefas/PycharmProjects/Workshop/data.v0.csv</div></div><div class="card" title="Total number of rows evaluated (regardless of label availability)" aria-label="Total number of rows evaluated (regardless of label availability)"><div class="card-title">Samples</div><div class="card-value">22</div><div class="card-desc"></div></div><div class="card" title="Precision per requirement (here defined as TP / (TP + FN))" aria-label="Precision per requirement (here defined as TP / (TP + FN))" style="background: #dcfce7; color: #111827; border-color: rgba(0,0,0,0.06);"><div class="card-title">Precision</div><div class="card-value">0.867</div><div class="card-desc"></div></div><div class="card" title="True Negative Rate (specificity): TN / (TN + FP)" aria-label="True Negative Rate (specificity): TN / (TN + FP)" style="background: #dcfce7; color: #111827; border-color: rgba(0,0,0,0.06);"><div class="card-title">Recall</div><div class="card-value">1.000</div><div class="card-desc"></div></div>
+    </div>
+
+    
+
+    <div class="panel">
+      <div style="display:grid; grid-template-columns: 260px 1fr; gap: 12px; align-items: start;">
+        <div class="card" title="Average runtime of extract_task per row in milliseconds" aria-label="Average runtime of extract_task per row in milliseconds" style="background: #dcfce7; color: #111827; border-color: rgba(0,0,0,0.06);"><div class="card-title">Avg extract time</div><div class="card-value">915.63 ms</div><div class="card-desc"></div></div>
+        <div>
+          <div class="panel-title" style="margin-top:0;">Extract time distribution (ms)</div>
+          <svg viewBox="0 0 900 260" width="100%" height="260" role="img" aria-label="Histogram of extract times" preserveAspectRatio="xMidYMid meet">
+            <rect x="0" y="0" width="900" height="260" fill="transparent" />
+            <line x1="224" y1="10" x2="224" y2="220" stroke="#EF4444" stroke-width="2" stroke-dasharray="4,3" />
+            <rect x="50" y="45" width="39" height="175" fill="#4F46E5" opacity="0.8" />
+        <rect x="91" y="45" width="39" height="175" fill="#4F46E5" opacity="0.8" />
+        <rect x="133" y="10" width="39" height="210" fill="#4F46E5" opacity="0.8" />
+        <rect x="174" y="185" width="39" height="35" fill="#4F46E5" opacity="0.8" />
+        <rect x="216" y="220" width="39" height="0" fill="#4F46E5" opacity="0.8" />
+        <rect x="257" y="220" width="39" height="0" fill="#4F46E5" opacity="0.8" />
+        <rect x="299" y="185" width="39" height="35" fill="#4F46E5" opacity="0.8" />
+        <rect x="340" y="220" width="39" height="0" fill="#4F46E5" opacity="0.8" />
+        <rect x="382" y="185" width="39" height="35" fill="#4F46E5" opacity="0.8" />
+        <rect x="423" y="220" width="39" height="0" fill="#4F46E5" opacity="0.8" />
+        <rect x="465" y="220" width="39" height="0" fill="#4F46E5" opacity="0.8" />
+        <rect x="506" y="185" width="39" height="35" fill="#4F46E5" opacity="0.8" />
+        <rect x="548" y="220" width="39" height="0" fill="#4F46E5" opacity="0.8" />
+        <rect x="589" y="220" width="39" height="0" fill="#4F46E5" opacity="0.8" />
+        <rect x="631" y="220" width="39" height="0" fill="#4F46E5" opacity="0.8" />
+        <rect x="672" y="220" width="39" height="0" fill="#4F46E5" opacity="0.8" />
+        <rect x="714" y="220" width="39" height="0" fill="#4F46E5" opacity="0.8" />
+        <rect x="755" y="185" width="39" height="35" fill="#4F46E5" opacity="0.8" />
+        <rect x="797" y="220" width="39" height="0" fill="#4F46E5" opacity="0.8" />
+        <rect x="838" y="185" width="39" height="35" fill="#4F46E5" opacity="0.8" />
+            <!-- X axis labels -->
+            <text x="50" y="254" class="axis">611.3 ms</text>
+            <text x="894" y="254" class="axis" text-anchor="end">2057.4 ms</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top: 16px;">
+      <div class="panel-title">Confusion summary</div>
+      <div class="grid"> 
+        <div class="card" title="Predicted is_task=True and label=1" aria-label="Predicted is_task=True and label=1" style="background: #dcfce7; color: #111827; border-color: rgba(0,0,0,0.06);"><div class="card-title">True Positives</div><div class="card-value">13</div><div class="card-desc"></div></div>
+        <div class="card" title="Predicted is_task=True but label=0" aria-label="Predicted is_task=True but label=0" style="background: #fee2e2; color: #111827; border-color: rgba(0,0,0,0.06);"><div class="card-title">False Positives</div><div class="card-value">0</div><div class="card-desc"></div></div>
+        <div class="card" title="Predicted is_task=False but label=1" aria-label="Predicted is_task=False but label=1" style="background: #fee2e2; color: #111827; border-color: rgba(0,0,0,0.06);"><div class="card-title">False Negatives</div><div class="card-value">2</div><div class="card-desc"></div></div>
+        <div class="card" title="Predicted is_task=False and label=0" aria-label="Predicted is_task=False and label=0" style="background: #dcfce7; color: #111827; border-color: rgba(0,0,0,0.06);"><div class="card-title">True Negatives</div><div class="card-value">7</div><div class="card-desc"></div></div>
+      </div>
+    </div>
+    <div class="panel" style="margin-top: 16px;"><div class="panel-title">Failed test cases</div><ul class="fail-list"><li><span class="tag tag-FN" title="FN case">FN</span> <span class="muted">#</span>2 <span class="muted">gold=</span>1 <span class="muted">pred=</span>0 &nbsp;—&nbsp;<span class="text">We have a team meeting at 3pm to discuss the new project</span></li><li><span class="tag tag-FN" title="FN case">FN</span> <span class="muted">#</span>9 <span class="muted">gold=</span>1 <span class="muted">pred=</span>0 &nbsp;—&nbsp;<span class="text">Did you finish the presentation slides?</span></li></ul></div>
+  </div>
+</body>
+</html>
