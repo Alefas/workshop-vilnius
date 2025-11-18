@@ -199,6 +199,31 @@ def main():
         report_output = f"evaluation_report.{ds_name}.html"
 
     rows = read_csv(input_path)
+
+    # Auto-detect/fallback for label column if needed
+    def has_usable(col: Optional[str]) -> bool:
+        if not col:
+            return False
+        for r in rows:
+            if col in r and r[col] != "":
+                return True
+        return False
+
+    if not has_usable(label_col):
+        # Try common default 'is_task' used by provided datasets
+        if has_usable("is_task"):
+            prev = label_col or ""
+            if prev and prev != "is_task":
+                print(f"Warning: No usable values found for label column '{prev}'. Falling back to 'is_task'.")
+            elif not prev:
+                print("Info: No --label-col provided or empty. Using 'is_task' as label column.")
+            label_col = "is_task"
+        else:
+            # No usable labels at all; inform the user
+            shown = label_col or "(none)"
+            print(f"Warning: No usable label values found for '{shown}', and 'is_task' not available. "
+                  "Detection metrics (tp/fp/fn/tn, precision/recall/f1) will be zero.")
+
     metrics, outputs = evaluate(rows, args.text_col, label_col, gold_task_col)
 
     print("Examples:")
