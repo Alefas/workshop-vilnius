@@ -1,6 +1,7 @@
 from encodings import undefined
 from typing import Dict
 
+import json
 
 import os
 from openai import OpenAI
@@ -26,7 +27,10 @@ def extract_task(text: str) -> Dict[str, object]:
     )
 
     print(response.output_text)
-    return {"is_task": False,  "task": ""}
+    res = json.load(response.output_text)
+    assert "is_task" in res, print("Malformed response, missing is_task key")
+    
+    return res
 
 
 __all__ = ["extract_task"]
