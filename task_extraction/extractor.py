@@ -2,6 +2,7 @@ from encodings import undefined
 from typing import Dict
 
 import json
+import re
 
 import os
 from openai import OpenAI
@@ -22,14 +23,20 @@ def extract_task(text: str) -> Dict[str, object]:
     """
     response = client.responses.create(
         model="gpt-4o",
-        instructions="You are a coding assistant that talks like a pirate.",
+        instructions=f"""
+        Parse the following message to assess if the message contains a task. If so, summarize the task. Return the results in a json format e.g. '{{"is_task": 0, "task": "summary of task"}}',
+        Example input: "Remember to buy milk!"
+        Example response: {{"is_task":0, "task":"Buy milk"}}
+        """,
         input=text,
     )
 
-    print(response.output_text)
-    res = json.load(response.output_text)
+    response_text = response.output_text
+    parsed_text = re.findall(r"(\{.*?\})", response_text)[0]
+    print(parsed_text)
+    res = json.loads(parsed_text)
     assert "is_task" in res, print("Malformed response, missing is_task key")
-    
+
     return res
 
 
