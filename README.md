@@ -42,3 +42,9 @@ Notes
 - The extractor is rule-based, dependency-free, and designed to be fast and robust for common chat phrasing.
 - You can change column names using CLI flags.
 - The evaluation reports precision/recall/F1 for task detection and an average token overlap F1 for task text when a reference is provided.
+```
+python3 -m venv venv
+source venv/bin/activate
+pip install openai
+export OPENAI_API_KEY=<INSERT API KEY>
+```
