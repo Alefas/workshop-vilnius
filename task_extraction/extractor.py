@@ -12,7 +12,7 @@ def extract_task(text: str) -> Dict[str, object]:
         text: Input message text.
 
     Returns:
-        dict with keys {is_task: bool, confidence: float, task: str}
+        dict with keys {is_task: bool, task: str}
     """
     return {"is_task": False,  "task": ""}
 

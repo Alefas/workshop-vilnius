@@ -1,5 +1,8 @@
 import argparse
 import csv
+import glob
+import os
+import re
 from typing import List, Tuple, Optional
 
 from task_extraction import extract_task
@@ -69,7 +72,6 @@ def evaluate(rows: List[dict], text_col: str, label_col: Optional[str], gold_tas
         out_row = dict(row)
         out_row.update({
             "pred_is_task": result["is_task"],
-            "pred_confidence": result["confidence"],
             "pred_task": result["task"],
         })
         outputs.append(out_row)
@@ -94,9 +96,40 @@ def evaluate(rows: List[dict], text_col: str, label_col: Optional[str], gold_tas
     return metrics, outputs
 
 
+def find_latest_data_csv(search_dir: str = ".") -> Optional[str]:
+    """
+    Find the highest-version dataset file matching data.vN.csv in the given directory.
+
+    Returns absolute path or None if no matching files found.
+    """
+    pattern = os.path.join(search_dir, "data.v*.csv")
+    candidates = glob.glob(pattern)
+    best: Tuple[int, str] = (-1, "")
+    rx = re.compile(r"data\.v(\d+)\.csv$")
+    for path in candidates:
+        fname = os.path.basename(path)
+        m = rx.match(fname)
+        if not m:
+            continue
+        try:
+            ver = int(m.group(1))
+        except Exception:
+            continue
+        if ver > best[0]:
+            best = (ver, os.path.abspath(path))
+    return best[1] if best[0] >= 0 else None
+
+
 def main():
     ap = argparse.ArgumentParser(description="Evaluate task extraction on a CSV dataset")
-    ap.add_argument("--input", required=True, help="Path to input CSV with at least a text column")
+    ap.add_argument(
+        "--input",
+        default="",
+        help=(
+            "Path to input CSV with at least a text column. "
+            "If not provided, the latest data.vN.csv in the current directory will be used."
+        ),
+    )
     ap.add_argument("--text-col", default="text", help="Column name for the input message text")
     ap.add_argument("--label-col", default="label", help="Binary label column (0/1) for task presence; set to '' to disable")
     ap.add_argument("--gold-task-col", default="gold_task", help="Reference task text column; set to '' to disable")
@@ -106,12 +139,22 @@ def main():
     label_col = args.label_col if args.label_col else None
     gold_task_col = args.gold_task_col if args.gold_task_col else None
 
-    rows = read_csv(args.input)
+    input_path = args.input
+    if not input_path:
+        auto_path = find_latest_data_csv(os.getcwd())
+        if not auto_path:
+            raise SystemExit(
+                "No --input provided and no data.vN.csv files found in the current directory."
+            )
+        input_path = auto_path
+        print(f"Using dataset: {input_path}")
+
+    rows = read_csv(input_path)
     metrics, outputs = evaluate(rows, args.text_col, label_col, gold_task_col)
 
     print("Examples:")
     for i, r in enumerate(outputs[:5]):
-        print(f"- text={r.get(args.text_col, '')!r} -> is_task={r['pred_is_task']} conf={r['pred_confidence']:.2f} task={r['pred_task']!r}")
+        print(f"- text={r.get(args.text_col, '')!r} -> is_task={r['pred_is_task']} task={r['pred_task']!r}")
     print()
 
     print("Detection metrics:")
