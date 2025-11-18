@@ -3,9 +3,11 @@ import csv
 import glob
 import os
 import re
+import time
 from typing import List, Tuple, Optional
 
 from task_extraction import extract_task
+from report import build_html_report
 
 def read_csv(path: str) -> List[dict]:
     rows: List[dict] = []
@@ -34,14 +36,29 @@ def f1_from_sets(pred: set, gold: set) -> float:
 
 
 def evaluate(rows: List[dict], text_col: str, label_col: Optional[str], gold_task_col: Optional[str]) -> Tuple[dict, List[dict]]:
+    """
+    Evaluate extractor predictions against binary labels.
+
+    Notes:
+    - TP/FP/FN/TN are computed for all rows that have a usable binary label in
+      `label_col` and are entirely independent from the presence of any
+      `gold_task` text column.
+    - If a `gold_task_col` is provided and present, it is used only to compute
+      the optional average token-set F1 for task text overlap; the confusion
+      counts and detection metrics do not depend on it.
+    """
     tp = fp = fn = tn = 0
     task_f1_sum = 0.0
     task_f1_count = 0
     outputs: List[dict] = []
+    durations_ms: List[float] = []
 
     for row in rows:
         text = row.get(text_col, "") or ""
+        t0 = time.perf_counter()
         result = extract_task(text)
+        t1 = time.perf_counter()
+        durations_ms.append((t1 - t0) * 1000.0)
 
         pred = 1 if result["is_task"] else 0
         gold = None
@@ -73,13 +90,24 @@ def evaluate(rows: List[dict], text_col: str, label_col: Optional[str], gold_tas
         out_row.update({
             "pred_is_task": result["is_task"],
             "pred_task": result["task"],
+            "extract_ms": durations_ms[-1],
         })
         outputs.append(out_row)
 
-    precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+    # Standard detection metrics
+    std_precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+    f1 = 2 * std_precision * recall / (std_precision + recall) if (std_precision + recall) > 0 else 0.0
+    # Requested definition: overall match rate between predicted is_task and gold label
+    labeled_total = tp + fp + fn + tn
+    overall_match_rate = (tp + tn) / labeled_total if labeled_total > 0 else 0.0
     avg_task_f1 = task_f1_sum / task_f1_count if task_f1_count > 0 else None
+    pos_total = tp + fn
+    neg_total = tn + fp
+    # Percent of tasks wrong per class
+    fn_rate_pos = (fn / pos_total * 100.0) if pos_total > 0 else None
+    fp_rate_neg = (fp / neg_total * 100.0) if neg_total > 0 else None
+    avg_extract_ms = sum(durations_ms) / len(durations_ms) if durations_ms else 0.0
 
     metrics = {
         "count": len(rows),
@@ -87,13 +115,22 @@ def evaluate(rows: List[dict], text_col: str, label_col: Optional[str], gold_tas
         "fp": fp,
         "fn": fn,
         "tn": tn,
-        "precision": precision,
+        # Expose "precision" as the requested overall match rate (accuracy-like)
+        "precision": overall_match_rate,
+        # Keep the traditional precision as an extra field for reference
+        "std_precision": std_precision,
         "recall": recall,
         "f1": f1,
         "avg_task_f1": avg_task_f1,
         "task_overlap_evaluated": task_f1_count,
+        "avg_extract_ms": avg_extract_ms,
+        "fn_rate_pos_percent": fn_rate_pos,
+        "fp_rate_neg_percent": fp_rate_neg,
+        "durations_ms": durations_ms,
     }
     return metrics, outputs
+
+
 
 
 def find_latest_data_csv(search_dir: str = ".") -> Optional[str]:
@@ -134,6 +171,12 @@ def main():
     ap.add_argument("--label-col", default="label", help="Binary label column (0/1) for task presence; set to '' to disable")
     ap.add_argument("--gold-task-col", default="gold_task", help="Reference task text column; set to '' to disable")
     ap.add_argument("--output", default="", help="Optional path to write predictions CSV")
+    # If not provided, the report will be saved as evaluation_report.<DATASETFILENAME>.html
+    ap.add_argument(
+        "--report-output",
+        default="",
+        help="Path to save HTML dashboard report (default: evaluation_report.<DATASETFILENAME>.html)",
+    )
     args = ap.parse_args()
 
     label_col = args.label_col if args.label_col else None
@@ -149,6 +192,12 @@ def main():
         input_path = auto_path
         print(f"Using dataset: {input_path}")
 
+    # Determine report output path if not explicitly provided
+    report_output = args.report_output
+    if not report_output:
+        ds_name = os.path.basename(input_path)
+        report_output = f"evaluation_report.{ds_name}.html"
+
     rows = read_csv(input_path)
     metrics, outputs = evaluate(rows, args.text_col, label_col, gold_task_col)
 
@@ -162,6 +211,15 @@ def main():
     print(f"precision={metrics['precision']:.3f} recall={metrics['recall']:.3f} f1={metrics['f1']:.3f}")
     if metrics["avg_task_f1"] is not None:
         print(f"avg_task_f1={metrics['avg_task_f1']:.3f} (over {metrics['task_overlap_evaluated']} examples with gold_task)")
+    if metrics.get("fn_rate_pos_percent") is not None:
+        print(f"If gold=True, percent predicted False (FN rate): {metrics['fn_rate_pos_percent']:.2f}%")
+    else:
+        print("If gold=True, percent predicted False (FN rate): N/A (no positives)")
+    if metrics.get("fp_rate_neg_percent") is not None:
+        print(f"If gold=False, percent predicted True (FP rate): {metrics['fp_rate_neg_percent']:.2f}%")
+    else:
+        print("If gold=False, percent predicted True (FP rate): N/A (no negatives)")
+    print(f"Average extract_task time: {metrics['avg_extract_ms']:.2f} ms")
 
     if args.output:
         fieldnames = list(outputs[0].keys()) if outputs else []
@@ -170,6 +228,13 @@ def main():
             writer.writeheader()
             writer.writerows(outputs)
         print(f"Predictions written to {args.output}")
+
+    # Always generate an HTML report unless explicitly disabled by empty path
+    if report_output:
+        html = build_html_report(input_path, metrics)
+        with open(report_output, "w", encoding="utf-8") as f:
+            f.write(html)
+        print(f"HTML report written to {report_output}")
 
 
 if __name__ == "__main__":
