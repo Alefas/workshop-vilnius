@@ -1,2 +1,2 @@
-text,is_task,confidence,task
-"Can you prepare the release notes by Friday?",0,0.4,prepare the release notes by Friday
+text,is_task,task
+Can you prepare the release notes by Friday?,0,prepare the release notes by Friday

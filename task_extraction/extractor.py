@@ -14,7 +14,7 @@ def extract_task(text: str) -> Dict[str, object]:
     Returns:
         dict with keys {is_task: bool, confidence: float, task: str}
     """
-    return {"is_task": False, "confidence": 0.0, "task": ""}
+    return {"is_task": False,  "task": ""}
 
 
 __all__ = ["extract_task"]

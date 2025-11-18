@@ -4,7 +4,6 @@ from typing import List, Tuple, Optional
 
 from task_extraction import extract_task
 
-
 def read_csv(path: str) -> List[dict]:
     rows: List[dict] = []
     with open(path, newline='', encoding='utf-8') as f:
